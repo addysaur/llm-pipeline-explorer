@@ -112,14 +112,36 @@ textarea:focus{box-shadow:4px 4px 0 var(--line)}
 .viewer-controls button{flex:1}
 .tooltip{position:absolute; pointer-events:none; background:#221d05; color:#fff9c4; border:1.5px solid #fff9c4; padding:6px 8px; font-family:"IBM Plex Mono",monospace; font-size:12px; display:none; z-index:5}
 
-.table-wrap{overflow:auto; border:2px solid var(--line); background:#fffef5; color:#221d05}
-table{border-collapse:collapse; width:100%; font-family:"IBM Plex Mono",monospace; font-size:12px; min-width:640px}
-th,td{padding:8px 9px; border-bottom:1px solid #ddd48a; text-align:right; white-space:nowrap}
-th{text-align:right; background:#efe07a; position:sticky; top:0; font-size:11px; letter-spacing:.05em; text-transform:uppercase}
-th:first-child, td:first-child{text-align:left; position:sticky; left:0; background:#fffef5; font-weight:700}
-th:first-child{background:#efe07a; z-index:1}
-tr.sel td{background:#fff2a8} tr.sel td:first-child{background:#ffe95e}
-tr{cursor:pointer}
+/* Embedding table — the numbers room: one dark panel, one open file at a time */
+.panel.void{background:#121003; color:#f7e98a; border-color:#0a0902}
+@media(prefers-color-scheme:dark){.panel.void{border-color:var(--line)}}
+.panel.void .panel-head{border-color:rgba(247,233,138,.3)}
+.panel.void .level{background:#ff2a1a; color:#fff}
+.panel.void .badge{background:#1e1b07; color:#f7e98a; border-color:#f7e98a}
+.panel.void .note{color:#c9bd7a}
+.panel.void code{background:rgba(247,233,138,.12); color:#f7e98a}
+.void-light{height:8px; background:linear-gradient(180deg,#fffef0,#fff9a8); box-shadow:0 0 22px rgba(255,250,180,.8); margin-bottom:14px; animation:flicker 9s infinite}
+@media (prefers-reduced-motion: reduce){.void-light{animation:none}}
+.void-warn{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:#ff8a75; margin:0 0 12px}
+.emb-list{border:2px solid rgba(247,233,138,.55); max-height:344px; overflow-y:auto; background:#0a0902}
+.vrow{display:grid; grid-template-columns:30px minmax(64px,1fr) 104px 58px; gap:10px; align-items:center; width:100%; text-align:left; background:transparent; border:0; border-bottom:1px solid rgba(247,233,138,.16); color:#f7e98a; padding:9px 12px; cursor:pointer; font-family:"IBM Plex Mono",monospace}
+.vrow:hover{background:rgba(247,233,138,.07)}
+.vrow.sel{background:#f7e98a; color:#221d05}
+.vrow .vpos{font-size:11px; opacity:.65}
+.vrow .vtok{font-weight:700; font-size:14px; word-break:break-all}
+.vrow .vtok small{display:block; font-weight:400; font-size:10px; opacity:.65; margin-top:1px}
+.vrow canvas{width:104px; height:26px; display:block}
+.vrow .vnorm{font-size:12px; text-align:right; opacity:.85; white-space:nowrap}
+@media(max-width:520px){.vrow{grid-template-columns:24px minmax(56px,1fr) 84px} .vrow canvas{width:84px} .vrow .vnorm{display:none}}
+.vdetail{margin-top:16px; border:2px dashed rgba(255,42,26,.75); padding:16px 14px 14px; position:relative; background:rgba(255,42,26,.05)}
+.vdetail .stamp{position:absolute; top:-10px; right:12px; background:#ff2a1a; color:#fff; font-family:"IBM Plex Mono",monospace; font-size:10px; font-weight:700; letter-spacing:.12em; padding:2px 8px; transform:rotate(2deg); text-transform:uppercase}
+.vdetail h3{margin:0 0 4px; font-family:"IBM Plex Mono",monospace; font-size:15px}
+.vdetail p{margin:0 0 12px; font-size:12px; color:#c9bd7a; font-family:"IBM Plex Mono",monospace}
+.vgrid{display:grid; grid-template-columns:repeat(8,1fr); gap:6px}
+@media(max-width:640px){.vgrid{grid-template-columns:repeat(4,1fr)}}
+.vcell{border:1px solid rgba(247,233,138,.3); padding:6px 4px; text-align:center}
+.vcell b{display:block; font-size:9px; letter-spacing:.08em; opacity:.6; font-family:"IBM Plex Mono",monospace; text-transform:uppercase; font-weight:400}
+.vcell span{font-family:"IBM Plex Mono",monospace; font-size:13px}
 
 .plots{display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; margin-top:18px}
 @media(max-width:1000px){.plots{grid-template-columns:1fr 1fr}}
@@ -257,13 +279,16 @@ input[type=range]{accent-color:#221d05; width:100%}
   </div>
 
   <!-- TABLE -->
-  <section class="panel" id="table" style="margin-top:18px;">
+  <section class="panel void" id="table" style="margin-top:18px;">
+    <div class="void-light"></div>
     <div class="panel-head">
-      <div><span class="level">Level 0 — Vectors</span><h2>Embedding table — 16 dimensions</h2></div>
-      <span class="badge">Click a row to select • 16 dims per token</span>
+      <div><span class="level">Level ?? — Vectors</span><h2>The embedding table</h2></div>
+      <span class="badge">⚠ Do not read the numbers aloud</span>
     </div>
-    <div class="table-wrap"><table id="embTable"><thead></thead><tbody></tbody></table></div>
-    <p class="note" style="margin-top:10px;">Real LLMs use 768–12,288 dimensions. We use 16 so you can actually read them. Similar tokens have similar rows — compare <code>cat</code> vs <code>dog</code> vs <code>network</code>.</p>
+    <p class="void-warn">▸ <span id="embCount">0</span> files in this room. One opens at a time. The rest stay shut.</p>
+    <div class="emb-list" id="embList"></div>
+    <div class="vdetail" id="embDetail"></div>
+    <p class="note" style="margin-top:12px;">Each sparkline is the shape of a token's 16 numbers — its fingerprint, nothing more. Real LLMs use 768–12,288 dimensions; 16 is all this room can hold. Similar tokens have similar shapes — compare <code>cat</code> vs <code>dog</code> vs <code>network</code>. If a shape starts repeating on its own, leave the level.</p>
   </section>
 
   <!-- PLOTS -->
@@ -501,14 +526,31 @@ function renderAll(){
   const sel=tokens[selectedIdx];
   document.getElementById('selTokenLabel').textContent= sel? `"${sel.text}"  •  id ${sel.id}  •  pos ${sel.pos}` : '—';
   document.getElementById('barTitle').textContent= sel? `Vector for "${sel.text}" — 16 dimensions` : 'No token';
-  // table
-  const thead=document.querySelector('#embTable thead'); const tbody=document.querySelector('#embTable tbody');
-  thead.innerHTML=`<tr><th>Token</th><th>ID</th>${Array.from({length:16},(_,i)=>`<th>d${i}</th>`).join('')}<th>|v|</th></tr>`;
-  tbody.innerHTML='';
-  tokens.forEach((t,i)=>{ const tr=document.createElement('tr'); if(i===selectedIdx) tr.className='sel'; tr.innerHTML=`<td>${t.text}</td><td>${t.id}</td>${embeddings[i].vec.map(v=>`<td>${v.toFixed(2)}</td>`).join('')}<td>${embeddings[i].norm.toFixed(2)}</td>`; tr.addEventListener('click',()=>selectToken(i)); tbody.appendChild(tr); });
+  // table — one row per token (sparkline only), one open file with the full vector
+  document.getElementById('embCount').textContent=tokens.length;
+  const embList=document.getElementById('embList'); embList.innerHTML='';
+  tokens.forEach((t,i)=>{
+    const b=document.createElement('button'); b.className='vrow'+(i===selectedIdx?' sel':''); b.type='button';
+    b.setAttribute('aria-label','Open the vector file for '+t.text);
+    b.innerHTML=`<span class="vpos">${String(i).padStart(2,'0')}</span><span class="vtok">${t.text}<small>id ${t.id}</small></span>`;
+    const cv=document.createElement('canvas'); cv.width=208; cv.height=52; cv.setAttribute('aria-hidden','true'); b.appendChild(cv);
+    const norm=document.createElement('span'); norm.className='vnorm'; norm.textContent='|v| '+embeddings[i].norm.toFixed(2); b.appendChild(norm);
+    b.addEventListener('click',()=>selectToken(i)); embList.appendChild(b);
+    drawSpark(cv, embeddings[i].vec, i===selectedIdx);
+  });
+  const detail=document.getElementById('embDetail');
+  if(sel){ detail.innerHTML=`<span class="stamp">Opened</span><h3>FILE ${String(sel.pos).padStart(2,'0')} — &ldquo;${sel.text}&rdquo;</h3><p>id ${sel.id} &bull; |v| ${embeddings[selectedIdx].norm.toFixed(2)} &bull; all 16 dimensions, unredacted</p><div class="vgrid">${embeddings[selectedIdx].vec.map((v,i)=>`<div class="vcell"><b>d${i}</b><span>${v.toFixed(2)}</span></div>`).join('')}</div>`; }
+  else { detail.innerHTML=''; }
   rebuild3D(); drawBar(); drawScatter(); drawHeatmap();
 }
 function selectToken(i){ selectedIdx=i; renderAll(); }
+function drawSpark(cv, vec, isSel){
+  const ctx=cv.getContext('2d'); const W=cv.width, H=cv.height; ctx.clearRect(0,0,W,H);
+  const mid=H/2, bw=W/16;
+  ctx.strokeStyle= isSel? 'rgba(34,29,5,.4)' : 'rgba(247,233,138,.35)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,mid); ctx.lineTo(W,mid); ctx.stroke();
+  vec.forEach((v,i)=>{ const h=Math.max(3, Math.abs(v)*21); ctx.fillStyle= isSel? '#221d05' : (v>=0? '#f7e98a' : '#ff6b1a'); ctx.fillRect(i*bw+2, v>=0? mid-h : mid, bw-4, h); });
+}
 
 // ---------- Plots ----------
 function drawBar(){
