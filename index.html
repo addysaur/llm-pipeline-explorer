@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="data:," />
+<title>LLM Pipeline Explorer — Level 0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&family=Archivo+Black&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<style>
+:root{
+  --paper:#f7e98a; --paper2:#efe07a; --card:#fff9c4; --card2:#fef9d6;
+  --ink:#221d05; --ink2:#4a4218; --muted:#6b621f;
+  --line:#221d05; --mustard:#c9b23a; --mustard-d:#8a7d22; --carpet:#7a6e2e; --carpet-d:#554d1e;
+  --accent:#ff6b1a; --accent2:#0f766e; --chip:#ffffff;
+  --wall-a:#e9d97e; --wall-b:#d9c95f;
+  --shadow: 6px 6px 0 #221d05;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#2e2a10; --paper2:#24200c; --card:#3a3516; --card2:#332f13;
+    --ink:#f7e98a; --ink2:#e6d98a; --muted:#c9bd7a;
+    --line:#f7e98a; --mustard:#8a7d22; --chip:#1e1b07;
+    --wall-a:#2e2a10; --wall-b:#211d08;
+    --shadow: 6px 6px 0 #000;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; color:var(--ink); font-family:Inter,system-ui,sans-serif;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -100px, rgba(255,255,220,.9), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(34,29,5,.06) 0 2px, transparent 2px 72px),
+    repeating-linear-gradient(0deg, rgba(34,29,5,.045) 0 1px, transparent 1px 28px),
+    linear-gradient(180deg, var(--wall-a), var(--wall-b) 55%, var(--carpet) 55.2%, var(--carpet-d));
+  background-attachment:fixed;
+  min-height:100vh;
+}
+@media (prefers-color-scheme: dark){ body{background: radial-gradient(ellipse 900px 500px at 50% -100px, rgba(247,233,138,.18), transparent 60%), repeating-linear-gradient(90deg, rgba(247,233,138,.06) 0 2px, transparent 2px 72px), linear-gradient(180deg,#2e2a10,#1f1c08);} }
+
+/* VHS overlays */
+.scanlines{position:fixed; inset:0; pointer-events:none; z-index:50; opacity:.14; background:repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, transparent 1px 3px); mix-blend-mode:multiply}
+.vignette{position:fixed; inset:0; pointer-events:none; z-index:51; background:radial-gradient(ellipse at center, transparent 55%, rgba(30,25,0,.28) 100%)}
+.noise{position:fixed; inset:0; pointer-events:none; z-index:52; opacity:.05; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")}
+
+.hud{position:fixed; z-index:60; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; pointer-events:none}
+.hud-tl{top:12px; left:14px} .hud-tr{top:12px; right:14px; text-align:right} .hud-bl{bottom:10px; left:14px} .hud-br{bottom:10px; right:14px; text-align:right}
+.rec{display:inline-block; width:8px; height:8px; background:#ff2a1a; border-radius:50%; vertical-align:middle; margin-right:6px; animation:blink 1.2s steps(1) infinite}
+@keyframes blink{50%{opacity:.1}}
+@keyframes flicker{0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:.55} 94%{opacity:1} 96%{opacity:.7} 97%{opacity:1}}
+.fluor{height:14px; background:linear-gradient(180deg,#fffef0,#fff9a8); border:2px solid var(--line); box-shadow:0 0 28px rgba(255,250,180,.95), 0 0 60px rgba(255,240,120,.5); animation:flicker 7s infinite}
+
+.wrap{max-width:1220px; margin:0 auto; padding:44px 16px 90px; position:relative; z-index:2}
+.topbar{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; font-family:"IBM Plex Mono",monospace; font-size:12px; text-transform:uppercase; letter-spacing:.08em; margin-top:22px}
+.topbar .tag{border:2px solid var(--line); background:var(--card); padding:8px 10px; box-shadow:3px 3px 0 var(--line)}
+.hero{margin-top:16px; border:2.5px solid var(--line); background:var(--card); box-shadow:var(--shadow); padding:22px 20px 18px; position:relative; overflow:hidden}
+.hero:before{content:""; position:absolute; inset:0; background:repeating-linear-gradient(90deg, transparent 0 46px, rgba(34,29,5,.05) 46px 48px); pointer-events:none}
+.hero h1{font-family:"Archivo Black",sans-serif; font-size:clamp(32px,6vw,62px); line-height:.92; letter-spacing:-.02em; margin:6px 0 10px; text-transform:uppercase; position:relative}
+.hero h1 span{display:block; color:transparent; -webkit-text-stroke:2px var(--ink)}
+.hero p{max-width:720px; line-height:1.6; color:var(--ink2); margin:0; position:relative; font-size:15.5px}
+.kicker{font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase; font-weight:700}
+.pipeline-nav{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; position:relative}
+.pipeline-nav a{font-family:"IBM Plex Mono",monospace; font-size:12px; text-decoration:none; color:var(--ink); border:2px solid var(--line); padding:10px 12px; background:#fff; min-height:40px; display:inline-flex; align-items:center}
+@media(prefers-color-scheme:dark){.pipeline-nav a{background:#221d05; color:var(--ink)}}
+.pipeline-nav a b{background:var(--ink); color:var(--paper); padding:2px 6px; margin-right:7px}
+@media(prefers-color-scheme:dark){.pipeline-nav a b{background:var(--paper); color:#221d05}}
+
+.grid{display:grid; grid-template-columns:1.05fr .95fr; gap:18px; margin-top:18px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{border:2.5px solid var(--line); background:var(--card); box-shadow:var(--shadow); padding:18px}
+.panel-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:2px dashed rgba(34,29,5,.35); padding-bottom:12px; margin-bottom:14px}
+@media(prefers-color-scheme:dark){.panel-head{border-color:rgba(247,233,138,.35)}}
+.panel-head h2{margin:2px 0 0; font-size:20px; line-height:1.1; letter-spacing:-.01em}
+.level{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.13em; text-transform:uppercase; font-weight:700; background:var(--ink); color:var(--paper); display:inline-block; padding:4px 7px}
+@media(prefers-color-scheme:dark){.level{background:var(--paper); color:#221d05}}
+.badge{font-family:"IBM Plex Mono",monospace; font-size:11px; border:1.5px solid var(--line); padding:6px 8px; white-space:nowrap; background:#fff}
+@media(prefers-color-scheme:dark){.badge{background:#221d05}}
+label{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; display:block; margin-bottom:8px}
+textarea{width:100%; min-height:110px; resize:vertical; border:2px solid var(--line); background:#fffef5; color:#221d05; padding:12px; font-size:16px; line-height:1.5; font-family:Inter,sans-serif; outline:none}
+textarea:focus{box-shadow:4px 4px 0 var(--line)}
+.examples{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.examples button, .btn{cursor:pointer; border:2px solid var(--line); background:#fff; color:#221d05; font-family:"IBM Plex Mono",monospace; font-size:12px; padding:10px 12px; min-height:40px; font-weight:600}
+.examples button:hover, .btn:hover{background:var(--paper)}
+.btn.primary{background:var(--ink); color:var(--paper)}
+@media(prefers-color-scheme:dark){.btn.primary{background:var(--paper); color:#221d05} .examples button,.btn{background:#fff9c4; color:#221d05}}
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:14px}
+@media(max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{border:2px solid var(--line); background:var(--card2); padding:10px}
+.stat strong{font-size:22px; display:block; line-height:1; font-family:"IBM Plex Mono",monospace}
+.stat span{font-size:11px; font-family:"IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.07em; color:var(--muted)}
+
+.tokens{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+.token{cursor:pointer; border:2px solid var(--line); background:var(--chip); padding:8px 6px 7px; min-width:64px; text-align:center; min-height:52px; position:relative}
+.token:hover{transform:translate(-1px,-1px); box-shadow:3px 3px 0 var(--line)}
+.token.selected{background:var(--ink); color:var(--paper); box-shadow:4px 4px 0 var(--accent)}
+@media(prefers-color-scheme:dark){.token.selected{background:var(--paper); color:#221d05}}
+.token .txt{font-weight:700; font-size:14px; display:block; word-break:break-all}
+.token .id{font-family:"IBM Plex Mono",monospace; font-size:10px; opacity:.75; display:block; margin-top:2px}
+.token .pos{position:absolute; top:-9px; left:-6px; background:var(--accent); color:#fff; font-family:"IBM Plex Mono",monospace; font-size:10px; padding:1px 5px; border:1.5px solid var(--line); font-weight:700}
+.legend{display:flex; gap:14px; flex-wrap:wrap; font-family:"IBM Plex Mono",monospace; font-size:11px; margin-top:12px; color:var(--ink2)}
+.dot{width:10px; height:10px; border-radius:50%; display:inline-block; vertical-align:middle; margin-right:5px; border:1.5px solid var(--line)}
+
+.viewer-wrap{border:2px solid var(--line); background:#0f0e05; position:relative; overflow:hidden}
+#threeContainer{width:100%; height:460px; display:block; cursor:grab}
+#threeContainer:active{cursor:grabbing}
+.viewer-hud{position:absolute; left:10px; top:10px; right:10px; display:flex; justify-content:space-between; pointer-events:none; font-family:"IBM Plex Mono",monospace; font-size:11px; color:#f7e98a; text-transform:uppercase; letter-spacing:.08em}
+.viewer-hud span{background:rgba(0,0,0,.65); border:1px solid rgba(247,233,138,.5); padding:6px 8px}
+.viewer-controls{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.viewer-controls button{flex:1}
+.tooltip{position:absolute; pointer-events:none; background:#221d05; color:#fff9c4; border:1.5px solid #fff9c4; padding:6px 8px; font-family:"IBM Plex Mono",monospace; font-size:12px; display:none; z-index:5}
+
+.table-wrap{overflow:auto; border:2px solid var(--line); background:#fffef5; color:#221d05}
+table{border-collapse:collapse; width:100%; font-family:"IBM Plex Mono",monospace; font-size:12px; min-width:640px}
+th,td{padding:8px 9px; border-bottom:1px solid #ddd48a; text-align:right; white-space:nowrap}
+th{text-align:right; background:#efe07a; position:sticky; top:0; font-size:11px; letter-spacing:.05em; text-transform:uppercase}
+th:first-child, td:first-child{text-align:left; position:sticky; left:0; background:#fffef5; font-weight:700}
+th:first-child{background:#efe07a; z-index:1}
+tr.sel td{background:#fff2a8} tr.sel td:first-child{background:#ffe95e}
+tr{cursor:pointer}
+
+.plots{display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; margin-top:18px}
+@media(max-width:1000px){.plots{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.plots{grid-template-columns:1fr}}
+canvas.plot{width:100%; height:220px; display:block; background:#fffef5; border:2px solid var(--line)}
+.heatmap{display:grid; gap:2px; margin-top:4px}
+.hcell{aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-family:"IBM Plex Mono",monospace; font-size:10px; border:1px solid rgba(34,29,5,.25); min-height:22px; cursor:pointer}
+.note{font-size:13px; line-height:1.6; color:var(--ink2)}
+code{font-family:"IBM Plex Mono",monospace; background:rgba(34,29,5,.08); padding:1px 5px; font-size:.92em}
+.flow{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:18px}
+@media(max-width:800px){.flow{grid-template-columns:repeat(2,1fr)}}
+.flow div{border:2px solid var(--line); background:var(--card); padding:12px; box-shadow:4px 4px 0 var(--line)}
+.flow b{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; display:block}
+.flow span{font-size:12.5px; color:var(--ink2); line-height:1.5; display:block; margin-top:5px}
+.footer{margin-top:22px; font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; opacity:.85}
+select{border:2px solid var(--line); background:#fff; padding:9px; font-family:"IBM Plex Mono",monospace; font-size:12px; min-height:40px; color:#221d05}
+input[type=range]{accent-color:#221d05; width:100%}
+</style>
+</head>
+<body>
+<div class="scanlines"></div><div class="vignette"></div><div class="noise"></div>
+<div class="hud hud-tl"><span class="rec"></span>REC &nbsp; CAM 00 — LEVEL 0</div>
+<div class="hud hud-tr">SP ▶ PLAY<br><span id="vhsTime">0:00:00</span></div>
+<div class="hud hud-bl">NO EXIT FOUND • HUM OF FLUORESCENTS</div>
+<div class="hud hud-br">NST / AI-ML • TAPE 001</div>
+
+<div class="wrap">
+  <div class="fluor"></div>
+  <div class="topbar">
+    <span class="tag">⬜ Backrooms — Sublevel: Language</span>
+    <span class="tag">Yellow wallpaper • Damp carpet • Endless tokens</span>
+    <span class="tag" id="dateTag">TUE 17 NOV 2026</span>
+  </div>
+
+  <header class="hero">
+    <div class="kicker">Level 0 — The Lobby • LLM Pipeline Explorer</div>
+    <h1>Tokenise.<span>Embed. Wander.</span></h1>
+    <p>Type any sentence and walk it through the pipeline. It gets chopped into tokens, turned into vectors, and plotted as glowing points lost in a liminal embedding space — like furniture in an empty office that goes on forever.</p>
+    <nav class="pipeline-nav">
+      <a href="#tokenise"><b>01</b> Tokenisation</a>
+      <a href="#embed3d"><b>02</b> Embeddings in 3D</a>
+      <a href="#plots"><b>03</b> Plotting &amp; Similarity</a>
+      <a href="#table"><b>04</b> Vector Table</a>
+    </nav>
+  </header>
+
+  <div class="flow">
+    <div><b>Raw Text →</b><span>Your sentence enters the corridor.</span></div>
+    <div><b>Tokens →</b><span>Split into sub-words with IDs.</span></div>
+    <div><b>Embeddings →</b><span>Each token becomes a 16-dim vector.</span></div>
+    <div><b>3D Space →</b><span>Vectors projected &amp; plotted in the void.</span></div>
+    <div><b>Similarity →</b><span>Close points = related meaning.</span></div>
+  </div>
+
+  <div class="grid">
+    <!-- TOKENISATION -->
+    <section class="panel" id="tokenise">
+      <div class="panel-head">
+        <div><span class="level">Level 0 — Tokenisation</span><h2>Chop the text into tokens</h2></div>
+        <span class="badge">WordPiece-style • ## = continuation</span>
+      </div>
+      <label for="inputText">Input prompt — try your own</label>
+      <textarea id="inputText">The cat sat on the mat while the neural network learned language from tokens</textarea>
+      <div class="examples">
+        <button data-ex="The cat sat on the mat while the neural network learned language from tokens">🐈 Animals + AI</button>
+        <button data-ex="Transformers use attention to understand the meaning of every token in context">🤖 Transformers</button>
+        <button data-ex="I love exploring endless yellow rooms and liminal spaces at night">🟨 Backrooms</button>
+        <button data-ex="Dogs and cats are animals but computers and robots are machines that learn">⚖️ Contrast</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><strong id="statTokens">0</strong><span>Tokens</span></div>
+        <div class="stat"><strong id="statChars">0</strong><span>Characters</span></div>
+        <div class="stat"><strong id="statRatio">0</strong><span>Chars / token</span></div>
+        <div class="stat"><strong id="statVocab">—</strong><span>Avg |vector|</span></div>
+      </div>
+
+      <h3 style="margin:18px 0 6px; font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.1em; text-transform:uppercase;">Token stream — tap a token to inspect it</h3>
+      <div class="tokens" id="tokenList"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#ff6b1a"></span>Selected</span>
+        <span><span class="dot" style="background:#f7e98a"></span>Content word</span>
+        <span><span class="dot" style="background:#a8d8b9"></span>Function / subword</span>
+        <span>Token ID is deterministic — same text, same ID, every time you re-enter the room.</span>
+      </div>
+      <p class="note" style="margin-top:14px;">How it works: long / rare words are split — e.g. <code>tokenisation → token + ##isation</code>. Real models (GPT, BERT) learn these splits from data with BPE / WordPiece. Here we simulate it so you can <em>see</em> the split.</p>
+
+      <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label for="selTokenLabel">Selected token</label>
+          <div id="selTokenLabel" style="border:2px solid var(--line); background:#fffef5; color:#221d05; padding:12px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:18px;">—</div>
+        </div>
+        <div>
+          <label for="tempRange">3D spread — corridor size</label>
+          <input type="range" id="tempRange" min="60" max="180" value="100">
+          <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:11px;"><span>Tight rooms</span><span id="spreadVal">100%</span><span>Endless</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3D -->
+    <section class="panel" id="embed3d" style="padding:14px;">
+      <div class="panel-head" style="margin:4px 4px 12px;">
+        <div><span class="level">Level 0 — Embedding Space</span><h2 style="margin-top:6px;">Points lost in the Backrooms</h2></div>
+        <span class="badge">Drag to look around • Scroll to zoom</span>
+      </div>
+      <div class="viewer-wrap">
+        <div id="threeContainer"></div>
+        <div class="viewer-hud"><span>◉ Embedding Void</span><span id="hudSelected">No token selected</span></div>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+      <div class="viewer-controls">
+        <button class="btn" id="btnRotate">⏸ Pause drift</button>
+        <button class="btn" id="btnResetCam">⌂ Reset camera</button>
+        <button class="btn primary" id="btnShuffle">↻ Re-project (PCA jitter)</button>
+      </div>
+      <p class="note" style="margin-top:10px; padding:0 4px;">Each sphere is a token. Distance = meaning: <b>cat / dog</b> drift together, <b>neural / network / token</b> form another cluster. The yellow fog, carpet floor and ceiling lights are just the room — the geometry underneath is the first 3 principal directions of the 16-dim vectors.</p>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; padding:0 4px;">
+        <label style="flex:1; min-width:160px;">Projection
+          <select id="projSelect" style="width:100%; margin-top:6px;">
+            <option value="pca">PCA — dims 0·1·2</option>
+            <option value="d345">Dims 3·4·5</option>
+            <option value="d678">Dims 6·7·8</option>
+            <option value="random">Random projection</option>
+          </select>
+        </label>
+        <label style="flex:1; min-width:160px;">Point labels
+          <select id="labelSelect" style="width:100%; margin-top:6px;">
+            <option value="all">Show all labels</option>
+            <option value="selected">Selected only</option>
+            <option value="none">Hide labels</option>
+          </select>
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <!-- TABLE -->
+  <section class="panel" id="table" style="margin-top:18px;">
+    <div class="panel-head">
+      <div><span class="level">Level 0 — Vectors</span><h2>Embedding table — 16 dimensions</h2></div>
+      <span class="badge">Click a row to select • 16 dims per token</span>
+    </div>
+    <div class="table-wrap"><table id="embTable"><thead></thead><tbody></tbody></table></div>
+    <p class="note" style="margin-top:10px;">Real LLMs use 768–12,288 dimensions. We use 16 so you can actually read them. Similar tokens have similar rows — compare <code>cat</code> vs <code>dog</code> vs <code>network</code>.</p>
+  </section>
+
+  <!-- PLOTS -->
+  <div class="plots" id="plots">
+    <section class="panel">
+      <div class="panel-head"><div><span class="level">Plot A</span><h2 style="font-size:17px;">Vector bars</h2></div></div>
+      <p class="note" id="barTitle" style="margin-top:0;">Selected token across 16 dims</p>
+      <canvas class="plot" id="barCanvas" width="600" height="440"></canvas>
+      <p class="note">Positive bars go up, negative go down. This is the token's fingerprint.</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><span class="level">Plot B</span><h2 style="font-size:17px;">2D projection</h2></div></div>
+      <p class="note" style="margin-top:0;">PCA Dim 0 (x) vs Dim 1 (y) — top-down map of the corridor</p>
+      <canvas class="plot" id="scatterCanvas" width="600" height="440"></canvas>
+      <p class="note">If two dots overlap here, the model thinks they're neighbours — even if they're far in full 16-D.</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><span class="level">Plot C</span><h2 style="font-size:17px;">Cosine similarity</h2></div></div>
+      <p class="note" style="margin-top:0;">How similar is every token to every other? 1.00 = identical direction.</p>
+      <div id="heatmap" class="heatmap"></div>
+      <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:11px; margin-top:8px;"><span>■ Dissimilar</span><span>■ Similar →</span></div>
+      <p class="note" id="simReadout">Tap a cell to read the pair score.</p>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:18px;">
+    <div class="panel-head"><div><span class="level">Field Notes — How to read this</span><h2>What you're actually seeing</h2></div></div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px;">
+      <div><b style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.06em;">1 — TOKEN ≠ WORD</b><p class="note">A token can be a word, part of a word (<code>##isation</code>), or punctuation. Models never see raw letters — only token IDs.</p></div>
+      <div><b style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.06em;">2 — EMBEDDING = COORDINATES</b><p class="note">Each ID is looked up in a table to get a vector. Training moves vectors so meaning becomes geometry.</p></div>
+      <div><b style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.06em;">3 — 3D IS A SHADOW</b><p class="note">You can't plot 16-D (or 4096-D) directly. PCA squashes it to 3D — useful, but some neighbours get distorted. That's normal.</p></div>
+      <div><b style="font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.06em;">4 — NEXT: ATTENTION</b><p class="note">After embeddings, position is added and attention lets tokens look at each other. That step isn't plotted here — this tape ends at the embedding room.</p></div>
+    </div>
+  </section>
+
+  <div class="footer"><span>Found footage • Do not follow the hum</span><span>Built for learning — simulated embeddings, real intuition</span></div>
+</div>
+
+<script>
+// ---------- VHS clock ----------
+let sec=0; setInterval(()=>{ sec++; const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60; document.getElementById('vhsTime').textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; },1000);
+
+// ---------- Tokenizer (WordPiece-style simulation) ----------
+const SUBWORDS = ["token","isation","ization","learn","ing","ed","er","est","un","re","pre","trans","form","ers","tion","sion","ness","ment","able","ible","ous","ive","ity","ies","the","and","cat","dog","sat","mat","neur","al","net","work","lang","uage","model","atten","mach","ine","explor","limin","space","room","yellow","end","less","night","love"];
+const COMMON = new Set(["the","a","an","is","are","was","were","on","in","at","to","of","and","or","but","while","from","with","that","this","it","i","you","we","they","he","she","cat","dog","sat","mat","love","night","learn","token","tokens","language","network","neural","model","space","spaces","yellow","rooms","room"]);
+
+function hashStr(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619); } return Math.abs(h); }
+function tokenId(text){ return 200 + (hashStr(text.toLowerCase()) % 28000); }
+
+function splitWord(word){
+  const lower = word.toLowerCase();
+  if(word.length<=4 || COMMON.has(lower)) return [word];
+  // greedy subword split
+  let rest = lower, out=[], first=true;
+  // try known subwords longest first
+  const sorted = [...SUBWORDS].sort((a,b)=>b.length-a.length);
+  let guard=0;
+  while(rest.length>0 && guard++<10){
+    let matched=null;
+    for(const sw of sorted){ if(rest.startsWith(sw) && sw.length>=3){ matched=sw; break; } }
+    if(matched){ out.push( (first?"":"##") + word.slice(word.toLowerCase().indexOf(rest), word.toLowerCase().indexOf(rest)+matched.length) ); rest=rest.slice(matched.length); first=false; }
+    else if(rest.length>4){ const chunk=rest.slice(0,4); out.push((first?"":"##")+word.slice(word.length-rest.length, word.length-rest.length+4)); rest=rest.slice(4); first=false; }
+    else { out.push((first?"":"##")+rest); break; }
+  }
+  return out.length?out:[word];
+}
+function tokenize(text){
+  const raw = text.match(/[A-Za-z]+|[0-9]+|[^\sA-Za-z0-9]/g) || [];
+  let tokens=[];
+  raw.forEach(w=>{
+    if(/^[A-Za-z]+$/.test(w) && w.length>5){ splitWord(w).forEach(p=>tokens.push(p)); }
+    else tokens.push(w);
+  });
+  return tokens.map((t,i)=>({ text:t, id:tokenId(t.replace('##','')), pos:i, isSub:t.startsWith('##'), isFunc: COMMON.has(t.toLowerCase())===false && t.length<=3 || ["the","a","an","on","in","at","to","of","and","or","while","from","with"].includes(t.toLowerCase()) }));
+}
+
+// ---------- Embeddings (deterministic, semantically clustered) ----------
+const CLUSTERS = [
+  {words:["cat","dog","bird","fish","animal","animals","pet"], c:[ 2.2, 1.4, 0.6, 0.8,-0.6, 0.3, 1.1,-0.4]},
+  {words:["neural","network","token","tokens","model","transformer","transformers","attention","machine","computer","robot","robots","learn","learned","embedding","embeddings","language"], c:[-2.0, 1.2,-1.0, 1.4, 0.9,-0.8,-0.5, 1.2]},
+  {words:["room","rooms","space","spaces","yellow","liminal","endless","corridor","wallpaper","night","exploring","love"], c:[ 0.4,-2.0, 1.6,-0.7, 1.3, 0.9,-1.2, 0.2]},
+  {words:["sat","mat","on","table","floor"], c:[ 1.0,-0.5, 0.2, 0.1, 0.2,-0.2, 0.4, 0.0]},
+];
+function getEmbedding(tokenText){
+  const clean = tokenText.replace('##','').toLowerCase();
+  const h = hashStr(clean);
+  let vec = new Array(16).fill(0);
+  for(let i=0;i<16;i++){ const x = Math.sin(h*0.013 + i*1.97) + Math.cos(h*0.007 + i*0.83); vec[i]= x/2.4; }
+  // cluster pull
+  for(const cl of CLUSTERS){ if(cl.words.includes(clean)){ for(let i=0;i<8;i++) vec[i]= vec[i]*0.35 + cl.c[i]*0.65; for(let i=8;i<16;i++) vec[i]= vec[i]*0.6 + Math.sin(h+i)*0.2; break; } }
+  // subwords pull toward parent-ish region slightly
+  if(tokenText.startsWith('##')){ for(let i=0;i<16;i++) vec[i]*=0.85; vec[0]+=0.3; }
+  // normalize a touch
+  const norm = Math.sqrt(vec.reduce((a,b)=>a+b*b,0))||1;
+  return { vec, norm };
+}
+function cosine(a,b){ let d=0, na=0, nb=0; for(let i=0;i<a.length;i++){ d+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; } return d/(Math.sqrt(na)*Math.sqrt(nb)||1); }
+
+// ---------- State ----------
+let tokens=[], embeddings=[], selectedIdx=0, spread=1, jitterSeed=0, projMode='pca';
+const COLORS = [0xff6b1a,0xf7e98a,0x14b8a6,0xeab308,0xf97316,0x84cc16,0x06b6d4,0xfacc15,0xa3e635,0xfb923c];
+
+// ---------- Three.js scene — Backrooms void ----------
+let scene, camera, renderer, pointsGroup, spheres=[], labelSprites=[], raycaster, mouse, animating=true, drag=null;
+function makeLabelSprite(text, isSel){
+  const c=document.createElement('canvas'); c.width=256; c.height=80; const ctx=c.getContext('2d');
+  ctx.fillStyle= isSel ? '#ff6b1a' : 'rgba(20,18,2,0.88)'; ctx.fillRect(0,10,256,52);
+  ctx.strokeStyle='#f7e98a'; ctx.lineWidth=3; ctx.strokeRect(0,10,256,52);
+  ctx.fillStyle= isSel ? '#fff' : '#f7e98a'; ctx.font='bold 30px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text.slice(0,14),128,37);
+  const tex=new THREE.CanvasTexture(c); const mat=new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
+  const sp=new THREE.Sprite(mat); sp.scale.set(1.6,0.5,1); return sp;
+}
+let threeAvailable = typeof THREE !== 'undefined';
+function drawFallback3D(){
+  const container=document.getElementById('threeContainer');
+  if(!container) return;
+  let cv=container.querySelector('canvas.fallback3d');
+  if(!cv){ cv=document.createElement('canvas'); cv.className='fallback3d'; cv.style.cssText='width:100%;height:100%;display:block;background:radial-gradient(ellipse at 50% 35%, #e9d97e 0%, #c9b23a 38%, #2a2608 78%)'; container.appendChild(cv); }
+  cv.width=container.clientWidth*2||800; cv.height=460*2;
+  const ctx=cv.getContext('2d'); const W=cv.width,H=cv.height;
+  // corridor perspective lines
+  ctx.strokeStyle='rgba(34,29,5,.35)'; ctx.lineWidth=2;
+  for(let i=0;i<9;i++){ const x=(W/8)*i; ctx.beginPath(); ctx.moveTo(W/2,H*0.42); ctx.lineTo(x,H); ctx.stroke(); }
+  ctx.strokeStyle='rgba(255,255,220,.9)'; for(let i=-1;i<=1;i++){ ctx.fillStyle='#ffffe0'; ctx.fillRect(W/2+i*W*0.22-70, 28, 140, 22); }
+  ctx.fillStyle='rgba(20,18,2,.18)'; ctx.fillRect(0,H*0.42,W,2);
+  // points with pseudo-depth from z
+  tokens.forEach((t,i)=>{
+    const emb=embeddings[i]; if(!emb) return; const [x,y,z]=projectVec(emb.vec);
+    const scale= 1/(1+ (z+3)*0.08); const px=W/2 + x*W*0.11*scale + Math.sin(i)*6; const py=H*0.52 + y*H*0.11*scale - Math.abs(z)*4; const r=(i===selectedIdx?22:15)*scale+6;
+    ctx.beginPath(); ctx.arc(px,py,r,0,Math.PI*2); ctx.fillStyle= i===selectedIdx? '#ff6b1a':'#f7e98a'; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle='#221d05'; ctx.stroke();
+    ctx.fillStyle='#221d05'; ctx.font='bold 22px monospace'; ctx.textAlign='center'; ctx.fillText(t.text, px, py-r-8);
+  });
+  if(!tokens.length){ ctx.fillStyle='#221d05'; ctx.font='bold 24px monospace'; ctx.textAlign='center'; ctx.fillText('NO TOKENS — TYPE ABOVE', W/2, H/2); }
+}
+function initThree(){
+  if(!threeAvailable){ drawFallback3D(); return; }
+  const container=document.getElementById('threeContainer');
+  scene=new THREE.Scene(); scene.background=new THREE.Color(0x1a1705); scene.fog=new THREE.Fog(0xd9c95f, 8, 26);
+  camera=new THREE.PerspectiveCamera(58, container.clientWidth/container.clientHeight, 0.1, 100); camera.position.set(0,1.2,8.5);
+  renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(container.clientWidth, container.clientHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); container.appendChild(renderer.domElement);
+  scene.add(new THREE.AmbientLight(0xfff6a0,0.9));
+  const dl=new THREE.DirectionalLight(0xffffff,0.7); dl.position.set(3,6,4); scene.add(dl);
+  // floor — damp carpet
+  const floorGeo=new THREE.PlaneGeometry(40,40); const floorMat=new THREE.MeshStandardMaterial({color:0x8a7d2e, roughness:1}); const floor=new THREE.Mesh(floorGeo,floorMat); floor.rotation.x=-Math.PI/2; floor.position.y=-3.2; scene.add(floor);
+  const grid=new THREE.GridHelper(40,40,0xf7e98a,0x5c5318); grid.position.y=-3.19; grid.material.opacity=0.18; grid.material.transparent=true; scene.add(grid);
+  // back wall
+  const wallMat=new THREE.MeshStandardMaterial({color:0xe9d97e, roughness:0.95});
+  const wall=new THREE.Mesh(new THREE.PlaneGeometry(40,14), wallMat); wall.position.set(0,2,-9); scene.add(wall);
+  const wallL=new THREE.Mesh(new THREE.PlaneGeometry(40,14), wallMat); wallL.rotation.y=Math.PI/2; wallL.position.set(-10,2,0); scene.add(wallL);
+  const wallR=new THREE.Mesh(new THREE.PlaneGeometry(40,14), wallMat); wallR.rotation.y=-Math.PI/2; wallR.position.set(10,2,0); scene.add(wallR);
+  // ceiling + fluorescent panels
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(40,40), new THREE.MeshStandardMaterial({color:0xd9c95f})); ceil.rotation.x=Math.PI/2; ceil.position.y=5.5; scene.add(ceil);
+  for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++){ const light=new THREE.Mesh(new THREE.PlaneGeometry(2.6,1.1), new THREE.MeshBasicMaterial({color:0xffffe0})); light.rotation.x=Math.PI/2; light.position.set(i*5,5.48,j*5); scene.add(light); }
+  pointsGroup=new THREE.Group(); scene.add(pointsGroup);
+  raycaster=new THREE.Raycaster(); mouse=new THREE.Vector2();
+  // drag orbit
+  let isDown=false, lx=0, ly=0;
+  container.addEventListener('pointerdown', e=>{ isDown=true; lx=e.clientX; ly=e.clientY; });
+  window.addEventListener('pointerup', ()=>isDown=false);
+  container.addEventListener('pointermove', e=>{
+    const rect=container.getBoundingClientRect();
+    mouse.x=((e.clientX-rect.left)/rect.width)*2-1; mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+    // tooltip raycast later in animate
+    const tt=document.getElementById('tooltip'); tt.style.left=(e.clientX-rect.left+14)+'px'; tt.style.top=(e.clientY-rect.top+10)+'px';
+    if(!isDown) return;
+    const dx=e.clientX-lx, dy=e.clientY-ly; lx=e.clientX; ly=e.clientY;
+    pointsGroup.rotation.y += dx*0.008; pointsGroup.rotation.x += dy*0.005; pointsGroup.rotation.x=Math.max(-1.1,Math.min(1.1,pointsGroup.rotation.x));
+  });
+  container.addEventListener('wheel', e=>{ e.preventDefault(); camera.position.z=Math.max(4,Math.min(14, camera.position.z + e.deltaY*0.01)); }, {passive:false});
+  container.addEventListener('click', ()=>{
+    raycaster.setFromCamera(mouse,camera);
+    const hits=raycaster.intersectObjects(spheres);
+    if(hits.length){ const idx=hits[0].object.userData.idx; selectToken(idx); }
+  });
+  function animate(){ requestAnimationFrame(animate); if(animating) pointsGroup.rotation.y+=0.0016; // hover tooltip
+    raycaster.setFromCamera(mouse,camera); const hits=raycaster.intersectObjects(spheres); const tt=document.getElementById('tooltip');
+    if(hits.length){ const t=tokens[hits[0].object.userData.idx]; if(t){ tt.style.display='block'; tt.textContent=`${t.text}  •  id ${t.id}`; } } else tt.style.display='none';
+    renderer.render(scene,camera);
+  }
+  animate();
+  window.addEventListener('resize', ()=>{ const w=container.clientWidth, h=container.clientHeight; camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); });
+}
+function projectVec(vec){
+  let idx=[0,1,2];
+  if(projMode==='d345') idx=[3,4,5]; if(projMode==='d678') idx=[6,7,8];
+  if(projMode==='random'){ const s=jitterSeed; return [ (vec[0]*Math.cos(s)+vec[3]*Math.sin(s))*3*spread, (vec[1]+vec[5]*0.5)*3*spread, (vec[2]*Math.sin(s)+vec[4])*3*spread ]; }
+  const j = jitterSeed*0.15;
+  return [ (vec[idx[0]]*3 + j*Math.sin(vec[idx[1]]*4))*spread, (vec[idx[1]]*3)*spread, (vec[idx[2]]*3 + j*Math.cos(vec[idx[0]]*3))*spread ];
+}
+function rebuild3D(){
+  if(!threeAvailable || !pointsGroup){ drawFallback3D(); const hud=document.getElementById('hudSelected'); if(hud && tokens[selectedIdx]) hud.textContent=`▸ ${tokens[selectedIdx].text} • id ${tokens[selectedIdx].id}`; return; }
+  // clear
+  while(pointsGroup.children.length) pointsGroup.remove(pointsGroup.children[0]);
+  spheres=[]; labelSprites=[];
+  const showLabels=document.getElementById('labelSelect').value;
+  tokens.forEach((t,i)=>{
+    const emb=embeddings[i]; const [x,y,z]=projectVec(emb.vec);
+    const isSel=i===selectedIdx;
+    const geo=new THREE.SphereGeometry(isSel?0.26:0.18, 20,20);
+    const mat=new THREE.MeshStandardMaterial({color: isSel?0xff6b1a: COLORS[i%COLORS.length], emissive: isSel?0x662200:0x222200, roughness:0.35});
+    const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.userData.idx=i; pointsGroup.add(m); spheres.push(m);
+    // line to origin faint
+    const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(x,y,z)]);
+    const line=new THREE.Line(lg, new THREE.LineBasicMaterial({color:0xf7e98a, transparent:true, opacity:isSel?0.55:0.13})); pointsGroup.add(line);
+    if(showLabels==='all' || (showLabels==='selected' && isSel)){
+      const sp=makeLabelSprite(t.text, isSel); sp.position.set(x, y+0.42, z); pointsGroup.add(sp); labelSprites.push(sp);
+    }
+  });
+  // origin marker
+  const origin=new THREE.Mesh(new THREE.SphereGeometry(0.07,12,12), new THREE.MeshBasicMaterial({color:0xffffff})); pointsGroup.add(origin);
+  document.getElementById('hudSelected').textContent = tokens[selectedIdx] ? `▸ ${tokens[selectedIdx].text} • id ${tokens[selectedIdx].id}` : 'No token selected';
+}
+
+// ---------- Rendering UI ----------
+function renderAll(){
+  const text=document.getElementById('inputText').value;
+  tokens=tokenize(text.trim()||" ");
+  if(selectedIdx>=tokens.length) selectedIdx=0;
+  embeddings=tokens.map(t=>getEmbedding(t.text));
+  // stats
+  document.getElementById('statTokens').textContent=tokens.length;
+  document.getElementById('statChars').textContent=text.length;
+  document.getElementById('statRatio').textContent= tokens.length? (text.length/tokens.length).toFixed(1):'0';
+  const avgNorm= embeddings.length? (embeddings.reduce((a,e)=>a+e.norm,0)/embeddings.length).toFixed(2):'—';
+  document.getElementById('statVocab').textContent=avgNorm;
+  // token chips
+  const list=document.getElementById('tokenList'); list.innerHTML='';
+  tokens.forEach((t,i)=>{
+    const el=document.createElement('button'); el.className='token'+(i===selectedIdx?' selected':''); el.innerHTML=`<span class="pos">${i}</span><span class="txt">${t.text}</span><span class="id">id ${t.id}</span>`;
+    el.style.background = i===selectedIdx? '' : (t.isSub||t.isFunc ? '#e6f2e8' : '#ffffff');
+    if(i===selectedIdx) el.style.background='';
+    el.addEventListener('click',()=>selectToken(i)); list.appendChild(el);
+  });
+  // selected label
+  const sel=tokens[selectedIdx];
+  document.getElementById('selTokenLabel').textContent= sel? `"${sel.text}"  •  id ${sel.id}  •  pos ${sel.pos}` : '—';
+  document.getElementById('barTitle').textContent= sel? `Vector for "${sel.text}" — 16 dimensions` : 'No token';
+  // table
+  const thead=document.querySelector('#embTable thead'); const tbody=document.querySelector('#embTable tbody');
+  thead.innerHTML=`<tr><th>Token</th><th>ID</th>${Array.from({length:16},(_,i)=>`<th>d${i}</th>`).join('')}<th>|v|</th></tr>`;
+  tbody.innerHTML='';
+  tokens.forEach((t,i)=>{ const tr=document.createElement('tr'); if(i===selectedIdx) tr.className='sel'; tr.innerHTML=`<td>${t.text}</td><td>${t.id}</td>${embeddings[i].vec.map(v=>`<td>${v.toFixed(2)}</td>`).join('')}<td>${embeddings[i].norm.toFixed(2)}</td>`; tr.addEventListener('click',()=>selectToken(i)); tbody.appendChild(tr); });
+  rebuild3D(); drawBar(); drawScatter(); drawHeatmap();
+}
+function selectToken(i){ selectedIdx=i; renderAll(); }
+
+// ---------- Plots ----------
+function drawBar(){
+  const cv=document.getElementById('barCanvas'); const ctx=cv.getContext('2d'); const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fffef5'; ctx.fillRect(0,0,W,H);
+  if(!embeddings[selectedIdx]) return; const vec=embeddings[selectedIdx].vec;
+  const mid=H/2, bw=(W-60)/16;
+  ctx.strokeStyle='#221d05'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(28,mid); ctx.lineTo(W-12,mid); ctx.stroke();
+  vec.forEach((v,i)=>{ const x=34+i*bw; const h=v*95; ctx.fillStyle= v>=0 ? '#b8a400' : '#0f766e'; ctx.fillRect(x, v>=0? mid-h: mid, bw-8, Math.abs(h)); ctx.fillStyle='#221d05'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.fillText(v.toFixed(1), x+(bw-8)/2, v>=0? mid-h-6: mid+Math.abs(h)+14); ctx.fillText('d'+i, x+(bw-8)/2, H-10); });
+}
+function drawScatter(){
+  const cv=document.getElementById('scatterCanvas'); const ctx=cv.getContext('2d'); const W=cv.width,H=cv.height; ctx.clearRect(0,0,W,H); ctx.fillStyle='#fffef5'; ctx.fillRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(34,29,5,.12)'; for(let x=0;x<W;x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); } for(let y=0;y<H;y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.strokeStyle='#221d05'; ctx.beginPath(); ctx.moveTo(W/2,10); ctx.lineTo(W/2,H-28); ctx.moveTo(14,H/2); ctx.lineTo(W-14,H/2); ctx.stroke();
+  ctx.fillStyle='#221d05'; ctx.font='11px monospace'; ctx.fillText('dim 0 →', W-70, H/2-8); ctx.fillText('dim 1 ↑', W/2+8, 20);
+  tokens.forEach((t,i)=>{ const v=embeddings[i].vec; const x=W/2 + v[0]*110, y=H/2 - v[1]*110; ctx.beginPath(); ctx.arc(x,y, i===selectedIdx?11:8,0,Math.PI*2); ctx.fillStyle= i===selectedIdx? '#ff6b1a':'#c9b23a'; ctx.fill(); ctx.strokeStyle='#221d05'; ctx.lineWidth=1.5; ctx.stroke(); ctx.fillStyle='#221d05'; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.fillText(t.text, x, y-14); });
+}
+function drawHeatmap(){
+  const wrap=document.getElementById('heatmap'); const n=tokens.length; if(!n){ wrap.innerHTML=''; return; }
+  wrap.style.gridTemplateColumns=`repeat(${n},1fr)`;
+  wrap.innerHTML='';
+  // header row labels are tokens themselves — cells only for readability when n<=14, else still grid but small
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++){
+    const s=cosine(embeddings[i].vec, embeddings[j].vec); const norm=(s+1)/2; // 0..1
+    const cell=document.createElement('div'); cell.className='hcell';
+    // yellow -> teal scale: low = pale, high = deep mustard/teal
+    const bg = i===j ? '#221d05' : `rgba(${Math.round(20+norm*200)}, ${Math.round(150+norm*60)}, ${Math.round(20+ (1-norm)*80)}, ${0.25+norm*0.75})`;
+    cell.style.background=bg; cell.style.color= i===j? '#f7e98a' : (norm>0.72?'#fff':'#221d05');
+    cell.textContent= s.toFixed(2);
+    cell.title=`${tokens[i].text} ↔ ${tokens[j].text}: ${s.toFixed(3)}`;
+    cell.addEventListener('click',()=>{ document.getElementById('simReadout').textContent=`${tokens[i].text} ↔ ${tokens[j].text} — cosine ${s.toFixed(3)} ${s>0.6?'• very similar direction': s>0.25?'• somewhat related':'• mostly unrelated'}`; selectToken(i); });
+    wrap.appendChild(cell);
+  }
+  // axis labels below
+  const readout=document.getElementById('simReadout');
+  if(tokens[selectedIdx] && tokens.length>1){
+    // find nearest neighbour
+    let best=-2, bi=-1; embeddings.forEach((e,idx)=>{ if(idx===selectedIdx) return; const s=cosine(embeddings[selectedIdx].vec, e.vec); if(s>best){best=s; bi=idx;} });
+    if(bi>=0) readout.textContent=`Nearest neighbour to "${tokens[selectedIdx].text}" is "${tokens[bi].text}" (cos ${best.toFixed(2)}). Tap any cell for a pair.`;
+  }
+}
+
+// ---------- Events ----------
+document.getElementById('inputText').addEventListener('input', ()=>{ selectedIdx=0; renderAll(); });
+document.querySelectorAll('[data-ex]').forEach(b=>b.addEventListener('click',()=>{ document.getElementById('inputText').value=b.dataset.ex; selectedIdx=0; renderAll(); }));
+document.getElementById('tempRange').addEventListener('input', e=>{ spread=e.target.value/100; document.getElementById('spreadVal').textContent=e.target.value+'%'; rebuild3D(); });
+document.getElementById('projSelect').addEventListener('change', e=>{ projMode=e.target.value; rebuild3D(); drawScatter(); });
+document.getElementById('labelSelect').addEventListener('change', rebuild3D);
+document.getElementById('btnRotate').addEventListener('click', e=>{ animating=!animating; e.target.textContent= animating?'⏸ Pause drift':'▶ Resume drift'; });
+document.getElementById('btnResetCam').addEventListener('click', ()=>{ if(pointsGroup){pointsGroup.rotation.set(0,0,0);} if(camera) camera.position.z=8.5; if(!threeAvailable) drawFallback3D(); });
+document.getElementById('btnShuffle').addEventListener('click', ()=>{ jitterSeed+=1; rebuild3D(); });
+
+try{ initThree(); }catch(e){ threeAvailable=false; console.warn('3D fallback', e); }
+renderAll();
+</script>
+</body>
+</html>
